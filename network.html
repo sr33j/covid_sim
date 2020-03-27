@@ -6,15 +6,15 @@
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 		<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-		<script src="animejs/lib/anime.min.js"></script>
+		<script src="../animejs/lib/anime.min.js"></script>
 		<style type="text/css">
 			html {
 	  			background: #add8e6;
 			}
 			.square {
-				width: 17px;
-				height: 17px;
-				border: 3px solid #000;
+				width: 20px;
+				height: 20px;
+				border: 4px solid #000;
 				background-color: #FFF;
 			}
 
@@ -40,6 +40,13 @@
 		      position: absolute;
 			}
 
+			.circle {
+				border-radius: 50%;
+				width: 13px;
+				height: 13px;
+				background-color: #45B6FE;
+			}
+
 			svg {
 			  position: absolute;
 		      width: 100%;
@@ -49,13 +56,13 @@
 		</style>
 	</head>
 	<body>
-		<svg>
-			<div class="connect">Connect</div>
-		</svg>
+		<div class="connect">Connect</div>
 	</body>
 	<script type="text/javascript">
 		const body = document.querySelector('body');
 		var square_count = 0;
+		var circle_count = 0;
+		var graph = {};
 
 		function addSquare(event) {
 
@@ -74,20 +81,81 @@
 
 			$('body').append(d);
 
+			graph[d.id] = []
+
 			$('.square').draggable({
 				drag: updateLines
 			}); 
 
-			$('.square').click(function(e) {
-				e.stopImmediatePropagation();
-				if ($(this).attr("class").includes('selected')) {
-					$(this).attr("class", 'square');
+			function selectSquare(e) {
+				if ($(e.target).attr("class").includes('selected')) {
+					$(e.target).attr("class", 'square');
 				} 
 				else {
-					$(this).attr('class', 'square selected');
+					$(e.target).attr('class', 'square selected');
 				}
-			})
+			};
 
+			function addCircle(e) {
+				var p = document.createElement('div');
+
+				p.id = "c"+circle_count;
+
+				p.className = "circle";
+
+				p.style.position = "absolute";
+				p.style.left = x_pos+10+'px';
+				p.style.top = y_pos+10+'px';
+				$('body').append(p);
+
+				var edges  = graph[$(e.target).attr("id")];
+
+				var rand_index = Math.floor(Math.random() * edges.length);
+
+				var new_id = graph[$(e.target).attr("id")][rand_index]
+
+				var x_delta = $('#'+new_id).position().left - $(e.target).position().left;
+				var y_delta = $('#'+new_id).position().top - $(e.target).position().top;
+
+				anime({
+				  targets: '.circle',
+				  translateX: x_delta,
+				  translateY: y_delta,
+				  duration: 1000,
+				  loop: true,
+				  loopComplete: function(anim) {
+					edges  = graph[new_id];
+
+					rand_index = Math.floor(Math.random() * edges.length);
+
+					x_delta = $('#'+graph[$(e.target).attr("id")][rand_index]).position().left - $(e.target).position().left;
+					y_delta = $('#'+graph[$(e.target).attr("id")][rand_index]).position().top - $(e.target).position().top;
+				  }
+  				});
+
+				circle_count+=1;
+			};
+
+			var timer = 0;
+			var delay = 50;
+			var prevent = false;
+
+			$(".square")
+			  .on("click", function(e) {
+			  	e.stopImmediatePropagation();
+			    timer = setTimeout(function() {
+			      if (!prevent) {
+			        selectSquare(e);
+			      }
+			      prevent = false;
+			    }, delay);
+			  })
+			  .on("dblclick", function(e) {
+			  	e.stopImmediatePropagation();
+			    clearTimeout(timer);
+			    prevent = true;
+			    addCircle(e);
+			  });
 
 			square_count+=1;
 
@@ -103,16 +171,25 @@
 
 		  	for ( var i = 0; i < nodes.length-1; i++ ) {
 		  		for ( var j = i+1; j < nodes.length; j++ ) {
-		  			$('body').append('<svg style="pointer-events:none;"><line id="l'+nodes[i].id+nodes[j].id+'" class="line"></svg>');
-		  			line = $('#l'+nodes[i].id+nodes[j].id);   
-					square1 = nodes[i]  
-					square2 = nodes[j]
+					var s1 = nodes[i]  
+					var s2 = nodes[j]
 
+		  			if ( $('#l'+s1.id+s2.id).length ) {
+		  				continue;
+		  			}
+
+		  			$('body').append('<svg style="pointer-events:none;"><line id="l'+s1.id+s2.id+'" class="line"></svg>');
+
+		  			graph[s1.id].push(s2.id);
+		  			graph[s2.id].push(s1.id);
+
+		  			var line = $('#l'+s1.id+s2.id);   
+					
 					line
-					  .attr('x1', square1.style.left)
-					  .attr('y1', square1.style.top)
-					  .attr('x2', square2.style.left)
-					  .attr('y2', square2.style.top);
+					  .attr('x1', s1.style.left)
+					  .attr('y1', s1.style.top)
+					  .attr('x2', s2.style.left)
+					  .attr('y2', s2.style.top);
 		    	}
 		  	}
 
@@ -122,10 +199,8 @@
 		function updateLines(event, ui) {
 			var square_id = $(event.target).attr('id');
 			var lines = $("line[id*='"+square_id+"']").toArray();
-			// console.log(lines);
 			lines.forEach(
 				function(line, index) {
-					console.log(line);
 					if (line.id.indexOf(square_id) == 1) {
 						line.setAttribute('x1', $(event.target).css('left'));
 						line.setAttribute('y1', $(event.target).css('top'));
@@ -140,7 +215,7 @@
 
 		$(document).click(addSquare);
 
-		$('.connect').click(addLines)
+		$('.connect').click(addLines);
 
 
 
