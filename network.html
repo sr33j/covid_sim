@@ -45,6 +45,7 @@
 				width: 13px;
 				height: 13px;
 				background-color: #45B6FE;
+				pointer-events:none;
 			}
 
 			svg {
@@ -63,6 +64,7 @@
 		var square_count = 0;
 		var circle_count = 0;
 		var graph = {};
+		var circle_square = {};
 
 		function addSquare(event) {
 
@@ -96,6 +98,7 @@
 				}
 			};
 
+
 			function addCircle(e) {
 				var p = document.createElement('div');
 
@@ -104,40 +107,16 @@
 				p.className = "circle";
 
 				p.style.position = "absolute";
-				p.style.left = x_pos+10+'px';
-				p.style.top = y_pos+10+'px';
+				p.style.left = $(e.target).position().left+10+'px';
+				p.style.top = $(e.target).position().top+10+'px';
+				circle_square[p.id] = $(e.target).attr('id');
 				$('body').append(p);
-
-				var edges  = graph[$(e.target).attr("id")];
-
-				var rand_index = Math.floor(Math.random() * edges.length);
-
-				var new_id = graph[$(e.target).attr("id")][rand_index]
-
-				var x_delta = $('#'+new_id).position().left - $(e.target).position().left;
-				var y_delta = $('#'+new_id).position().top - $(e.target).position().top;
-
-				anime({
-				  targets: '.circle',
-				  translateX: x_delta,
-				  translateY: y_delta,
-				  duration: 1000,
-				  loop: true,
-				  loopComplete: function(anim) {
-					edges  = graph[new_id];
-
-					rand_index = Math.floor(Math.random() * edges.length);
-
-					x_delta = $('#'+graph[$(e.target).attr("id")][rand_index]).position().left - $(e.target).position().left;
-					y_delta = $('#'+graph[$(e.target).attr("id")][rand_index]).position().top - $(e.target).position().top;
-				  }
-  				});
 
 				circle_count+=1;
 			};
 
 			var timer = 0;
-			var delay = 50;
+			var delay = 200;
 			var prevent = false;
 
 			$(".square")
@@ -217,7 +196,59 @@
 
 		$('.connect').click(addLines);
 
+		function animation() {
+			anime({
+			  targets: '.circle',
+			  translateX: function(el, i) {
+			  	var square_id = circle_square[el.id];
+			  	var edges  = graph[square_id];
+				if (edges.length == 0){
+					return 0;
+				}
 
+				var x_delta = $('#'+square_id).position().left - $('#'+el.id).position().left+10;
+				console.log("x: "+x_delta);
+				console.log($('#'+square_id).position());
+				// $("#"+el.id).css({left: $('#'+square_id).position().left+10});
+
+
+				return x_delta;
+			  },
+			  translateY: function(el, i) {
+			  	var square_id = circle_square[el.id];
+			  	var edges  = graph[square_id];
+				if (edges.length == 0){
+					return 0;
+				}
+
+				var y_delta = $('#'+square_id).position().top - $('#'+el.id).position().top+10;
+				console.log("y: "+y_delta);
+				console.log($('#'+square_id).position());
+				// $("#"+el.id).css({top: $('#'+square_id).position().top+10});
+
+			  	return y_delta;
+			  },
+			  duration: 5000,
+			  easing: 'easeInOutQuad',
+			  complete: animation,
+			  loopComplete: function(anim) {
+			  	//update each circle's spot
+			  	for (var old_id in circle_square) {
+			  		var square_id = circle_square[old_id]
+			  		$("#"+old_id).css({left: $('#'+square_id).position().left+10,
+			  				           top: $('#'+square_id).position().top+10});
+					var edges  = graph[square_id];
+					if (edges.length != 0){
+						var rand_index = anime.random(0, edges.length-1);
+						var new_id = graph[square_id][rand_index]
+						circle_square[old_id] = new_id;	
+					}
+				}
+			  }
+			});
+		}
+
+		$(document).ready(animation);
 
 	</script>
 </html>
