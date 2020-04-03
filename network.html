@@ -5,11 +5,13 @@
 		<title>Network</title>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 		<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+		<link rel="stylesheet" type="text/css" href="../../semantic/semantic.min.css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+		<script src="../../semantic/semantic.min.js"></script>
 		<script src="../animejs/lib/anime.min.js"></script>
 		<style type="text/css">
-			html {
-	  			background: #add8e6;
+			body {
+	  			background-color: #add8e6;
 			}
 			.square {
 				width: 20px;
@@ -23,15 +25,15 @@
 			}
 
 			.connect {
-				width: 55px;
-				height: 20px;
 				position: absolute;
-				top: 50px;
-				left: 50px;
-				background-color: #FFF;
-				border: 3px solid #000;
-				padding: 5px;
-				margin: 10px;
+				top: 20px;
+				left: 20px;
+			}
+
+			.infect {
+				position: absolute;
+				top: 70px;
+				left: 20px;
 			}
 
 			.line {
@@ -46,6 +48,11 @@
 				height: 13px;
 				background-color: #45B6FE;
 				pointer-events:none;
+				position: absolute;
+			}
+
+			.infected {
+				background-color: #cd8de5;
 			}
 
 			svg {
@@ -57,14 +64,18 @@
 		</style>
 	</head>
 	<body>
-		<div class="connect">Connect</div>
+		<!-- <div class="connect">Connect</div> -->
+		<button class="ui green button connect">Connect</button>
+		<button class="ui red button infect">Infect</button>
 	</body>
 	<script type="text/javascript">
-		const body = document.querySelector('body');
 		var square_count = 0;
 		var circle_count = 0;
 		var graph = {};
 		var circle_square = {};
+		var days_till_recovery = {};
+		const RECOVERY_DAYS = 5;
+		const INFECTION_RATE = 1;
 
 		function addSquare(event) {
 
@@ -106,10 +117,9 @@
 
 				p.className = "circle";
 
-				p.style.position = "absolute";
-				p.style.left = $(e.target).position().left+10+'px';
-				p.style.top = $(e.target).position().top+10+'px';
 				circle_square[p.id] = $(e.target).attr('id');
+				days_till_recovery[p.id] = 0;
+
 				$('body').append(p);
 
 				circle_count+=1;
@@ -192,9 +202,21 @@
 			);
 		}
 
+		function infect(event) {
+			event.stopImmediatePropagation();
+			var circles = $('.circle:not(.infected)').toArray();
+			if (circles.length != 0) {
+				var rand_index = Math.floor(Math.random() * circles.length);
+				$('#'+circles[rand_index].id).attr('class','circle infected');
+				days_till_recovery[circles[rand_index].id] = RECOVERY_DAYS;
+			}
+		}
+
 		$(document).click(addSquare);
 
 		$('.connect').click(addLines);
+
+		$('.infect').click(infect);
 
 		function animation() {
 			anime({
@@ -206,11 +228,7 @@
 					return 0;
 				}
 
-				var x_delta = $('#'+square_id).position().left - $('#'+el.id).position().left+10;
-				console.log("x: "+x_delta);
-				console.log($('#'+square_id).position());
-				// $("#"+el.id).css({left: $('#'+square_id).position().left+10});
-
+				var x_delta = $('#'+square_id).position().left+Math.floor(Math.random()*15);
 
 				return x_delta;
 			  },
@@ -221,29 +239,55 @@
 					return 0;
 				}
 
-				var y_delta = $('#'+square_id).position().top - $('#'+el.id).position().top+10;
-				console.log("y: "+y_delta);
-				console.log($('#'+square_id).position());
-				// $("#"+el.id).css({top: $('#'+square_id).position().top+10});
+				var y_delta = $('#'+square_id).position().top+Math.floor(Math.random()*15);
 
 			  	return y_delta;
 			  },
-			  duration: 5000,
+			  duration: 2000,
 			  easing: 'easeInOutQuad',
 			  complete: animation,
-			  loopComplete: function(anim) {
+			  loopBegin: function(anim) {
+
 			  	//update each circle's spot
-			  	for (var old_id in circle_square) {
-			  		var square_id = circle_square[old_id]
-			  		$("#"+old_id).css({left: $('#'+square_id).position().left+10,
-			  				           top: $('#'+square_id).position().top+10});
+			  	for (var circle_id in circle_square) {
+			  		var square_id = circle_square[circle_id];
 					var edges  = graph[square_id];
 					if (edges.length != 0){
 						var rand_index = anime.random(0, edges.length-1);
-						var new_id = graph[square_id][rand_index]
-						circle_square[old_id] = new_id;	
+						var new_square_id = graph[square_id][rand_index]
+						circle_square[circle_id] = new_square_id;	
 					}
 				}
+
+
+			  	//update each circle infected condition
+			  	//determine which squares are infected
+			  	var infected_squares = [];
+			  	for (var circle_id in days_till_recovery) {
+			  		if (days_till_recovery[circle_id] > 0) {
+			  			days_till_recovery[circle_id]-=1;
+			  			if (days_till_recovery[circle_id] == 0) {
+			  				days_till_recovery[circle_id] = -1;
+			  			}
+			  			else {
+			  				infected_squares.push(circle_square[circle_id]);
+			  			}
+			  		}
+			  		else {
+			  			$('#'+circle_id).attr('class','circle');
+			  		}
+			  	}
+
+
+			  	//assign circle to be infected based on infection rate
+			  	for (var circle_id in circle_square) {
+			  		if (infected_squares.includes(circle_square[circle_id])) {
+			  			if (Math.random() < INFECTION_RATE && days_till_recovery[circle_id] == 0 ) {
+			  				$('#'+circle_id).attr('class','circle infected');
+			  				days_till_recovery[circle_id] = RECOVERY_DAYS;
+			  			}
+			  		}
+			  	}
 			  }
 			});
 		}
